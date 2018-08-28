@@ -1,31 +1,188 @@
-<!doctype html>
-<html>
-  <head>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
-    <title>Socket.IO chat</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font: 13px Helvetica, Arial; }
-      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
-      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
-      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
-      #messages { list-style-type: none; margin: 0; padding: 0; }
-      #messages li { padding: 5px 10px; }
-      #messages li:nth-child(odd) { background: #eee; }
-    </style>
-  </head>
-  <body>
-    <ul id="messages"></ul>
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>Game</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Bootstrap core CSS -->
+  <link rel="stylesheet"
+        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+        crossorigin="anonymous">
+</head>
+<body>
+
+<main role="main" class="container" style="margin-top: 20px;">
+  <div class="container">
+    <div class="card">
+      <div class="card-header text-center">
+        API
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-6">
+            <form method="post" action="#" id="form">
+              <div class="form-group">
+                <label for="apiurl">API URL</label>
+                <input type="text" class="form-control"
+                       id="apiurl" placeholder="API URL"
+                       value="https://live.test.wh.geniussports.com/v2/basketball/read/"
+                       required>
+              </div>
+              <div class="form-group">
+                <label for="apikey">API Key</label>
+                <input type="text" class="form-control"
+                       id="apikey" placeholder="API Key"
+                       value="2d12fafa5e4b7e1c2f0b102ba13bce19" required>
+              </div>
+              <div class="form-group">
+                <label for="matchid">Match ID</label>
+                <input type="text" class="form-control"
+                       id="matchid" placeholder="Match ID" value="36473"
+                       required>
+              </div>
+              <button type="submit" class="btn btn-primary" id="connect">
+                Connect
+              </button>
+            </form>
+          </div>
+          <div class="col-6">
+            <p id="connectionstatus">Not Connected</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="gamedetail" style="display: none;">
+      <div class="card-header text-center">
+        Game Details - Basketball
+      </div>
+      <div class="card-body">
+          <!--<p>VISITOR:-->
+          <!--<span id="visitorname"></span>-->
+          <!--<span id="visitorscore"></span>-->
+          <!--</p>-->
+          <!--<p>HOME:-->
+          <!--<span id="homename"></span>-->
+          <!--<span id="homescore"></span>-->
+          <!--</p>-->
+        <h3 id="competitionName"></h3>
+        <p id="clockloading">Waiting for clock info..</p>
+        <div id="clockdiv" style="display:none;">
+         <p>SHOT CLOCK:
+          <span id="shotclock"></span>
+          </p>
+        <p>CLOCK:
+          <span id="clock"></span>
+          </p>
+          </div>
+        <p id="teamloading">Waiting for team info..</p>
+        <div class="teamdiv" style="display:none;">
+          <p>
+            <span id="team1name"></span>
+            <span id="team1score"></span>
+          </p>
+          <p>
+            <span id="team2name"></span>
+            <span id="team2score"></span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main><!-- /.container -->
+<!-- Bootstrap core JavaScript
+================================================== -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 <script>
-  $(function () {
-    var socket = io();
-//      socket.emit('chat message', 'Hi there');
-    socket.on('chat message', function(msg){
-        console.log('New message')
-      $('#messages').append($('<li>').text(msg));
+    $(function () {
+        var socket = io();
+        $("#connect").click(function (e) {
+            e.preventDefault();
+            var apiURL = $('#apiurl').val();
+            var apiKey = $('#apikey').val();
+            var matchID = $('#matchid').val();
+            var fullURL = apiURL + matchID + '?ak=' + apiKey;
+            socket.emit('connectapi', fullURL);
+//            $.ajax({
+//                url: "/apiinfo?apiurl=" + apiURL + "&apiKey=" + apiKey + "&matchID=" + matchID,
+//                cache: false,
+//                success: function (html) {
+//                    console.log('success');
+//                    console.log(html);
+//                }
+//            });
+        });
+
+//        socket.emit('chat message', 'Hi there');
+        socket.on('data', function (msg) {
+            try {
+                result = JSON.parse(msg);
+                console.log(result);
+                if (result.type == 'connection') {
+                    $('#connectionstatus').html('<span class="text-success">Connected</span>');
+                    $('#gamedetail').show();
+                } else if (result.type == 'action') {
+                    $('#clockloading').hide();
+                    $('#clockdiv').show();
+                    $('#shotclock').text(result.shotClock);
+                    $('#clock').text(result.clock);
+                }
+                else if (result.type == 'matchInformation') {
+                    var competitionName = result.competition.competitionName;
+                    $('#competitionName').text(competitionName);
+                }
+
+                else if (result.type == 'teams') {
+                    $('#teamloading').hide();
+                    $('#teamdiv').show();
+                    var teams = result.teams;
+                      for (var team in teams) {
+                          var teamNumber = teams[team].teamNumber;
+                          var teamName = teams[team].detail.teamName;
+                          $('#team'+teamNumber+'name').text(teamName);
+                      }
+                }
+            } catch (e) {
+                console.log('Parse error')
+//                console.log(msg);
+            }
+        });
+
     });
-  });
 </script>
+</body>
 </html>
+
+
+<!--<!doctype html>-->
+<!--<html>-->
+<!--<head>-->
+<!--<script src="https://code.jquery.com/jquery-1.11.1.js"></script>-->
+<!--<title>Socket.IO chat</title>-->
+<!--<style>-->
+<!--* { margin: 0; padding: 0; box-sizing: border-box; }-->
+<!--body { font: 13px Helvetica, Arial; }-->
+<!--form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }-->
+<!--form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }-->
+<!--form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }-->
+<!--#messages { list-style-type: none; margin: 0; padding: 0; }-->
+<!--#messages li { padding: 5px 10px; }-->
+<!--#messages li:nth-child(odd) { background: #eee; }-->
+<!--</style>-->
+<!--</head>-->
+<!--<body>-->
+<!---->
+<!--<ul id="messages"></ul>-->
+<!--</body>-->
+<!--<script>-->
+
+<!--</script>-->
+<!--</html>-->
